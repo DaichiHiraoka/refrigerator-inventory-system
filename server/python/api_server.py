@@ -2,9 +2,8 @@ import json
 import queue
 import time
 import threading
-import asyncio
-import websockets
 import os
+# Not using asyncio and websockets in this simplified version
 
 class APIServer:
     def __init__(self, event_queue):

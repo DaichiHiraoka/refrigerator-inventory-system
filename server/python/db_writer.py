@@ -1,5 +1,6 @@
 import json
-import mysql.connector
+import psycopg2
+import psycopg2.extras
 import time
 import queue
 import os
@@ -13,17 +14,17 @@ class DBWriter:
         self.items_count = 0
     
     def connect_to_db(self):
-        """Establish connection to MySQL database"""
+        """Establish connection to PostgreSQL database"""
         try:
-            # Using drizzle for compatibility with the JS server
-            # We'll just perform raw SQL queries here
-            self.conn = mysql.connector.connect(
+            # Using environment variables set by Replit's PostgreSQL database
+            self.conn = psycopg2.connect(
                 host=os.environ.get('PGHOST', 'localhost'),
                 user=os.environ.get('PGUSER', 'postgres'),
                 password=os.environ.get('PGPASSWORD', ''),
                 database=os.environ.get('PGDATABASE', 'postgres')
             )
-            self.cursor = self.conn.cursor(dictionary=True)
+            # Use DictCursor to return results as dictionaries
+            self.cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
             self.event_queue.put({"type": "log", "message": "データベース接続完了"})
             
             # Create table if not exists
@@ -118,10 +119,12 @@ class DBWriter:
                 }
                 self.event_queue.put(event_data)
             else:
-                # Insert new item
+                # Insert new item - PostgreSQL uses RETURNING to get the new ID
                 insert_query = "INSERT INTO fridge_items (name, first_seen, last_seen) VALUES (%s, %s, %s) RETURNING item_id"
                 self.cursor.execute(insert_query, (name, timestamp, timestamp))
-                new_id = self.cursor.lastrowid
+                # In PostgreSQL, we fetch the returned item_id
+                returned_row = self.cursor.fetchone()
+                new_id = returned_row['item_id'] if returned_row else None
                 self.conn.commit()
                 
                 # Update item count
