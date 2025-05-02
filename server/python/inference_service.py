@@ -1,10 +1,10 @@
 import time
 import queue
 import json
-import torch
 import numpy as np
 import os
-from ultralytics import YOLO
+import cv2
+import random
 
 # Food class labels
 FOOD_CLASSES = [
