@@ -1,0 +1,104 @@
+# CONTEXT
+冷蔵庫内カメラ映像を用いて食材の在庫と消費期限を自動管理し、食品ロスを減らす。
+
+# GOAL
+GPU 対応推論サービスと Next.js フロントエンドで、1 秒あたり 1 アイテムの在庫更新を実現する。
+
+# REQUIREMENTS
+functional:
+  - 画像ストリームをリアルタイム受信し、.pt モデルで食材を分類
+  - 分類結果を MySQL に保存（食材ID, 食材名, 初回入庫日時, 最終入庫日時）
+  - WebSocket で在庫更新をフロントエンドへ push
+nonfunctional:
+  - Python 3.11 + GPU 推論 (CUDA/MPS) に対応
+  - 1 item/s のスループット
+  - 認証なし・Docker なし・Replit ネイティブ実行
+
+# ARCHITECTURE
+components:
+  - name: StreamReceiver
+    responsibility: カメラ画像ストリームを受信しフレームをキューに投入
+    tech: Python, OpenCV
+    I/O: frames → InferenceService
+  - name: InferenceService
+    responsibility: .pt モデルで GPU 推論し食材ラベルを出力
+    tech: Ultralytics YOLOv8, PyTorch CUDA
+    I/O: (label, timestamp) → DBWriter
+  - name: DBWriter
+    responsibility: 推論結果を MySQL に upsert
+    tech: SQLAlchemy, MySQL Connector
+    I/O: SQL → MySQL
+  - name: APIServer
+    responsibility: 在庫 REST & WebSocket 送信
+    tech: FastAPI, Uvicorn, websockets
+    I/O: HTTP/WS → WebApp
+  - name: WebApp
+    responsibility: 在庫一覧・期限アラートを表示
+    tech: Next.js 14 (React 18), SWR + WebSocket hook
+    I/O: JSON/WS events → Browser
+
+# DATA_MODEL
+- name: FridgeItem
+  fields:
+    item_id: BIGINT PRIMARY KEY AUTO_INCREMENT
+    name: VARCHAR(64)      # 食材名
+    first_seen: DATETIME   # 初回入庫日時
+    last_seen: DATETIME    # 最終入庫日時
+
+# INTERFACES
+- route: /items
+  method: GET
+  returns: List[FridgeItem]
+- route: /ws/items
+  protocol: websocket
+  events: item_added, item_updated
+
+# ALGO
+step_by_step:
+  1. StreamReceiver reads MJPEG/RTSP stream and pushes frames to queue.
+  2. InferenceService pops frame, runs YOLOv8 on GPU, gets (class, conf).
+  3. DBWriter upserts record: if item exists → update last_seen; else insert.
+  4. APIServer emits WebSocket event to subscribed clients.
+  5. WebApp updates UI in real‑time via WebSocket; falls back to /items polling when WS closed.
+
+# ACCEPTANCE_TESTS
+- given: フレームにキャベツが 1 つ映る
+  when: 推論スコア > 0.5
+  then: FridgeItem レコードが新規作成され WebSocket event=item_added が届く
+
+- given: 同一キャベツが 5 秒後に再検出
+  when: item_id で一致
+  then: last_seen が更新され item_updated が届く
+
+# BACKEND_CONFIG
+runtime: Python 3.11
+gpu_support: true
+batch_mode: stream
+throughput_target: 1 item/s
+db_engine: MySQL
+schema_constraints:
+  - UNIQUE(name, first_seen)
+api_protocol: REST + WebSocket
+auth_method: none
+containerization: none
+autoscaling: no
+
+# FRONTEND_CONFIG
+framework: Next.js
+state_sync: WebSocket
+push_notifications: N/A
+ui_language: N/A
+accessibility: N/A
+
+# DEVOPS
+repo_layout: mono‑repo
+ci_cd: Replit Deployments (GitHub Actions optional)
+test_strategy: pytest (backend), Jest + Playwright (frontend)
+secret_management: Replit Secrets
+fallback_policy: retry 3× then log warning
+
+# OPTIONALS
+edge_vs_cloud: N/A
+regulatory: N/A
+performance_budget: N/A
+future_extensions: N/A
