@@ -23,39 +23,53 @@ export function useWebSocket({ onMessage, onOpen, onClose }: UseWebSocketProps =
       clearTimeout(reconnectTimeoutRef.current);
     }
     
+    // Use the correct WebSocket URL
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
     
-    // Create new WebSocket connection
-    const socket = new WebSocket(wsUrl);
-    socketRef.current = socket;
+    console.log(`Connecting to WebSocket at ${wsUrl}`);
     
-    socket.onopen = () => {
-      console.log("WebSocket connection established");
-      setConnectionStatus("システム接続中");
-      if (onOpen) onOpen();
-    };
-    
-    socket.onmessage = (event) => {
-      if (onMessage) onMessage(event.data);
-    };
-    
-    socket.onclose = (event) => {
-      console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
-      setConnectionStatus("再接続中...");
-      if (onClose) onClose();
+    try {
+      // Create new WebSocket connection
+      const ws = new WebSocket(wsUrl);
+      socketRef.current = ws;
+      
+      ws.onopen = () => {
+        console.log("WebSocket connection established");
+        setConnectionStatus("システム接続中");
+        if (onOpen) onOpen();
+      };
+      
+      ws.onmessage = (event: MessageEvent) => {
+        console.log("WebSocket message received:", event.data);
+        if (onMessage) onMessage(event.data);
+      };
+      
+      ws.onclose = (event: CloseEvent) => {
+        console.log(`WebSocket connection closed: ${event.code} ${event.reason}`);
+        setConnectionStatus("再接続中...");
+        if (onClose) onClose();
+        
+        // Try to reconnect after a delay
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectWebSocket();
+        }, 3000);
+      };
+      
+      ws.onerror = (event: Event) => {
+        console.error("WebSocket error:", event);
+        setConnectionStatus("接続エラー");
+      };
+      
+    } catch (err) {
+      console.error("Error creating WebSocket:", err);
+      setConnectionStatus("接続エラー");
       
       // Try to reconnect after a delay
       reconnectTimeoutRef.current = setTimeout(() => {
         connectWebSocket();
       }, 3000);
-    };
-    
-    socket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      setConnectionStatus("接続エラー");
-      socket.close();
-    };
+    }
   }, [onMessage, onOpen, onClose]);
   
   // Initialize WebSocket connection on component mount
