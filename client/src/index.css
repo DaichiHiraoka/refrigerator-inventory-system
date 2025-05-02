@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 96%;
+    --foreground: 0 0% 9%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 9%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 9%;
+    
+    --primary: 212 100% 42%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 120 84% 28%;
+    --secondary-foreground: 0 0% 100%;
+    
+    --muted: 0 0% 95%;
+    --muted-foreground: 0 0% 45%;
+    
+    --accent: 0 0% 95%;
+    --accent-foreground: 0 0% 9%;
+    
+    --destructive: 14 91% 42%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --warning: 39 100% 50%;
+    --warning-foreground: 0 0% 9%;
+    
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 212 100% 42%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+/* Animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.transition-opacity {
+  transition: opacity 0.3s ease-out;
+}
