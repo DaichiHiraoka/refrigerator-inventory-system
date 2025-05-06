@@ -1,5 +1,0 @@
-mysql-connector-python==8.0.33
-numpy==1.23.5
-opencv-python==4.8.0.74
-torch==2.0.1
-ultralytics==8.0.145
